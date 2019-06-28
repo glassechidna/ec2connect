@@ -1,0 +1,58 @@
+before:
+  hooks: []
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w -X github.com/glassechidna/ec2connect/cmd.version={{.Version}} -X github.com/glassechidna/ec2connect/cmd.commit={{.ShortCommit}} -X github.com/glassechidna/ec2connect/cmd.date={{.Date}}
+    hooks:
+      post: ./upx.sh
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+nfpm:
+  vendor: ec2connect
+  homepage: https://github.com/glassechidna/ec2connect
+  maintainer: Aidan Steele <aidan.steele@glassechidna.com.au>
+  description: ec2connect is a convenient SSH wrapper around EC2 instance connect
+  formats:
+    - deb
+brew:
+  github:
+    owner: glassechidna
+    name: homebrew-taps
+  commit_author:
+    name: Aidan Steele
+    email: aidan.steele@glassechidna.com.au
+  homepage: https://github.com/glassechidna/ec2connect
+  description: ec2connect is a convenient SSH wrapper around EC2 instance connect
+scoop:
+  bucket:
+    owner: glassechidna
+    name: scoop-bucket
+  commit_author:
+    name: Aidan Steele
+    email: aidan.steele@glassechidna.com.au
+  homepage: https://github.com/glassechidna/ec2connect
+  description: ec2connect is a convenient SSH wrapper around EC2 instance connect
+  license: MIT
