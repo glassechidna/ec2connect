@@ -22,6 +22,14 @@ action "test" {
   uses = "./"
   args = "go test ./..."
   needs = ["not-tag"]
+  env = {
+    AWS_REGION = "ap-southeast-2"
+  }
+  secrets = [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "TEST_INSTANCE_ID"
+  ]
 }
 
 action "goreleaser" {
