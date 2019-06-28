@@ -25,7 +25,7 @@ import (
 var RootCmd = &cobra.Command{
 	Use:   "ec2connect",
 	Short: "",
-	Long: ``,
+	Long:  ``,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
@@ -47,9 +47,9 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	viper.AddConfigPath(".")        // adding home directory as first search path
-	viper.AddConfigPath("$HOME")    // adding home directory as first search path
-	viper.AutomaticEnv()            // read in environment variables that match
+	viper.AddConfigPath(".")     // adding home directory as first search path
+	viper.AddConfigPath("$HOME") // adding home directory as first search path
+	viper.AutomaticEnv()         // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {

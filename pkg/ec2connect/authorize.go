@@ -53,7 +53,7 @@ func (c *Authorizer) Authorize(ctx context.Context, instanceId, user, sshKey str
 	}
 
 	return &ConnectionInfo{
-		Address: ip,
+		Address:   ip,
 		RequestId: *r2.RequestId,
 	}, nil
 }

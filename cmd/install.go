@@ -8,7 +8,7 @@ func init() {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Remotely install EC2 Instance Connect on EC2 instance",
-		Long: ``,
+		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
 		},
 	}

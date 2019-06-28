@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -15,6 +18,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 )
 
 func init() {
@@ -29,7 +33,27 @@ func init() {
 
 			info, err := authorize(instanceId, region, user, sshKeyPath)
 			if err != nil {
-				panic(err)
+				if awsErr, ok := errors.Cause(err).(awserr.Error); ok {
+					if awsErr.Code() == credentials.ErrNoValidProvidersFoundInChain.Code() {
+						fmt.Fprintln(os.Stderr, `
+No AWS credentials found.
+
+* You can specify one of the profiles from ~/.aws/config by setting the 
+  AWS_PROFILE environment variable.
+
+* You can set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and optionally
+  AWS_SESSION_TOKEN.`)
+					} else if strings.HasPrefix(awsErr.Code(), "InvalidInstanceID.") {
+						fmt.Fprintf(os.Stderr, `
+No instance found with ID %s. Try specifying an explicit region using the 
+AWS_REGION environment variable.
+
+`, instanceId)
+					}
+					return
+				} else {
+					panic(err)
+				}
 			}
 
 			err = connect(info.Address + ":22")
@@ -38,7 +62,7 @@ func init() {
 			}
 		},
 	}
-	
+
 	cmd.PersistentFlags().String("instance-id", "", "")
 	cmd.PersistentFlags().String("region", "", "")
 	cmd.PersistentFlags().String("user", "ec2-user", "")
@@ -59,9 +83,9 @@ func authorize(instanceId, region, user, sshKeyPath string) (*ec2connect.Connect
 	}
 
 	sess, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
+		SharedConfigState:       session.SharedConfigEnable,
 		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
-		Config: *aws.NewConfig().WithRegion(region),//.WithLogLevel(aws.LogDebugWithHTTPBody),
+		Config:                  *aws.NewConfig().WithRegion(region), //.WithLogLevel(aws.LogDebugWithHTTPBody),
 	})
 	if err != nil {
 		return nil, err

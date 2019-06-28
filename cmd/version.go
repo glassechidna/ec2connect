@@ -23,4 +23,3 @@ Date: %s
 
 	RootCmd.AddCommand(cmd)
 }
-
