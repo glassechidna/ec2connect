@@ -1,5 +1,7 @@
 # `ec2connect`
 
+![render1561718563616](https://user-images.githubusercontent.com/369053/60337186-ad908180-99e5-11e9-9db3-de8b0d353739.gif)
+
 In [June 2019][rel-notes], AWS released [EC2 Instance Connect][docs] - a way of
 authenticating SSH sessions using AWS IAM policies. This **massively** improves
 security by removing the need for sharing SSH private keys. It also improves
