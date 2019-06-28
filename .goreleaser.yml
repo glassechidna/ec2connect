@@ -12,8 +12,7 @@ builds:
     ldflags:
       - -s -w -X github.com/glassechidna/ec2connect/cmd.version={{.Version}} -X github.com/glassechidna/ec2connect/cmd.commit={{.ShortCommit}} -X github.com/glassechidna/ec2connect/cmd.date={{.Date}}
 archives:
-  - format: binary
-    replacements:
+  - replacements:
       darwin: Darwin
       linux: Linux
       windows: Windows
