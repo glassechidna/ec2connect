@@ -13,14 +13,14 @@ func (c Config) EffectivePublicKey() []byte {
 			continue
 		}
 
-		pubBytes, err := ioutil.ReadFile(identityPath + ".pub")
-		if err == nil {
-			return pubBytes
-		}
-
 		privBytes, err := ioutil.ReadFile(identityPath)
 		if err != nil {
 			continue
+		}
+
+		pubBytes, err := ioutil.ReadFile(identityPath + ".pub")
+		if err == nil {
+			return pubBytes
 		}
 
 		signer, err := ssh.ParsePrivateKey(privBytes)
@@ -31,6 +31,19 @@ func (c Config) EffectivePublicKey() []byte {
 		return ssh.MarshalAuthorizedKey(signer.PublicKey())
 	}
 
-	// TODO support ssh agents
-	return nil
+	if c.Get("IdentitiesOnly") == "yes" {
+		return nil
+	}
+
+	agent := c.IdentityAgent()
+	if agent == nil {
+		return nil
+	}
+
+	keys, err := agent.List()
+	if err != nil || len(keys) == 0 {
+		return nil
+	}
+
+	return ssh.MarshalAuthorizedKey(keys[0])
 }
