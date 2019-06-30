@@ -47,3 +47,4 @@ ssh -L 2375:127.0.0.1:2375 ec2-user@i-000abc124def
 [rel-notes]: https://aws.amazon.com/about-aws/whats-new/2019/06/introducing-amazon-ec2-instance-connect/
 [docs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Connect-using-EC2-Instance-Connect.html
 [mssh]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-connect-set-up.html#ec2-instance-connect-install-eic-CLI
+[releases]: https://github.com/glassechidna/ec2connect/releases
