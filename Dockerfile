@@ -1,5 +1,5 @@
 FROM golang:1.12-alpine
-RUN apk add --update git upx ssh
+RUN apk add --update git upx openssh
 ADD https://github.com/goreleaser/goreleaser/releases/download/v0.106.0/goreleaser_Linux_x86_64.tar.gz .
 RUN tar -xvf goreleaser_Linux_x86_64.tar.gz && mv goreleaser /usr/bin
 
