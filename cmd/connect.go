@@ -11,11 +11,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect"
 	"github.com/glassechidna/ec2connect/pkg/ec2connect"
-	"github.com/mitchellh/go-homedir"
+	"github.com/glassechidna/ec2connect/pkg/sshconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -29,34 +28,8 @@ func init() {
 			instanceId, _ := cmd.PersistentFlags().GetString("instance-id")
 			region, _ := cmd.PersistentFlags().GetString("region")
 			user, _ := cmd.PersistentFlags().GetString("user")
-			sshKeyPath, _ := cmd.PersistentFlags().GetString("ssh-key")
-
-			info, err := authorize(instanceId, region, user, sshKeyPath)
-			if err != nil {
-				if awsErr, ok := errors.Cause(err).(awserr.Error); ok {
-					if awsErr.Code() == credentials.ErrNoValidProvidersFoundInChain.Code() {
-						fmt.Fprintln(os.Stderr, `
-No AWS credentials found.
-
-* You can specify one of the profiles from ~/.aws/config by setting the 
-  AWS_PROFILE environment variable.
-
-* You can set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and optionally
-  AWS_SESSION_TOKEN.`)
-					} else if strings.HasPrefix(awsErr.Code(), "InvalidInstanceID.") {
-						fmt.Fprintf(os.Stderr, `
-No instance found with ID %s. Try specifying an explicit region using the 
-AWS_REGION environment variable.
-
-`, instanceId)
-					}
-					return
-				} else {
-					panic(err)
-				}
-			}
-
-			err = connect(info.Address + ":22")
+			port, _ := cmd.PersistentFlags().GetInt("port")
+			err := connect(instanceId, region, user, port)
 			if err != nil {
 				panic(err)
 			}
@@ -66,22 +39,46 @@ AWS_REGION environment variable.
 	cmd.PersistentFlags().String("instance-id", "", "")
 	cmd.PersistentFlags().String("region", "", "")
 	cmd.PersistentFlags().String("user", "ec2-user", "")
-	cmd.PersistentFlags().String("ssh-key", "~/.ssh/ec2connect/id_rsa.pub", "")
+	cmd.PersistentFlags().Int("port", 22, "")
 
 	RootCmd.AddCommand(cmd)
 }
 
-func authorize(instanceId, region, user, sshKeyPath string) (*ec2connect.ConnectionInfo, error) {
-	path, err := homedir.Expand(sshKeyPath)
+func connect(instanceId, region, user string, port int) error {
+	conf := sshconfig.DefaultSsh.Get(instanceId, user, port)
+	pubKeyBytes := conf.EffectivePublicKey()
+
+	info, err := authorize(instanceId, region, user, string(pubKeyBytes))
 	if err != nil {
-		return nil, err
+		if awsErr, ok := errors.Cause(err).(awserr.Error); ok {
+			if awsErr.Code() == credentials.ErrNoValidProvidersFoundInChain.Code() {
+				_, _ = fmt.Fprintln(os.Stderr, `
+No AWS credentials found.
+
+* You can specify one of the profiles from ~/.aws/config by setting the 
+  AWS_PROFILE environment variable.
+
+* You can set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and optionally
+  AWS_SESSION_TOKEN.`)
+			} else if strings.HasPrefix(awsErr.Code(), "InvalidInstanceID.") {
+				_, _ = fmt.Fprintf(os.Stderr, `
+No instance found with ID %s. Try specifying an explicit region using the 
+AWS_REGION environment variable.
+
+`, instanceId)
+			} else {
+				return err
+			}
+			os.Exit(1)
+		} else {
+			return err
+		}
 	}
 
-	sshKey, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
+	return tunnel(fmt.Sprintf("%s:%d", info.Address, port))
+}
 
+func authorize(instanceId, region, user, sshKey string) (*ec2connect.ConnectionInfo, error) {
 	sess, err := session.NewSessionWithOptions(session.Options{
 		SharedConfigState:       session.SharedConfigEnable,
 		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
@@ -91,16 +88,11 @@ func authorize(instanceId, region, user, sshKeyPath string) (*ec2connect.Connect
 		return nil, err
 	}
 
-	key, err := ec2connect.NormalizeKey(string(sshKey))
-	if err != nil {
-		return nil, err
-	}
-
 	auth := &ec2connect.Authorizer{Ec2Api: ec2.New(sess), ConnectApi: ec2instanceconnect.New(sess)}
-	return auth.Authorize(context.Background(), instanceId, user, key)
+	return auth.Authorize(context.Background(), instanceId, user, sshKey)
 }
 
-func connect(addr string) error {
+func tunnel(addr string) error {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return errors.Wrapf(err, "establishing connection to %s", addr)

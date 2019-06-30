@@ -81,10 +81,7 @@ func setup(configPath, ec2connDir string) error {
 		return err
 	}
 
-	err = idempotentAppend(configPath, fmt.Sprintf(`
-
-Include %s
-`, myConfPath))
+	err = idempotentInsert(configPath, fmt.Sprintf("Include %s\n\n", myConfPath))
 	return errors.Wrapf(err, "appending config to %s", configPath)
 }
 
@@ -92,7 +89,7 @@ func sshConfigSnippet(privKeyPath string) ([]byte, error) {
 	tmpl, err := template.New("").Parse(`
 Match exec "ec2connect match --host %n --user %r"
   IdentityFile {{ .KeyPath }}
-  ProxyCommand ec2connect connect --instance-id %h --user %r
+  ProxyCommand ec2connect connect --instance-id %h --user %r --port %p
 `)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing ssh config template")
@@ -107,7 +104,7 @@ Match exec "ec2connect match --host %n --user %r"
 	return b.Bytes(), nil
 }
 
-func idempotentAppend(path, content string) error {
+func idempotentInsert(path, content string) error {
 	existing, err := ioutil.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "reading existing file")
@@ -117,13 +114,14 @@ func idempotentAppend(path, content string) error {
 		return nil
 	}
 
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return errors.Wrap(err, "opening file for appending")
 	}
 	defer f.Close()
 
 	_, err = f.WriteString(content)
+	_, err = f.Write(existing)
 	return err
 }
 

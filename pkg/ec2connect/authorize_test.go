@@ -11,28 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect/ec2instanceconnectiface"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"io/ioutil"
-	"strings"
 	"testing"
 )
-
-func TestNormalizeKey(t *testing.T) {
-	t.Run("valid", func(t *testing.T) {
-		key, err := ioutil.ReadFile("testdata/id_rsa")
-		assert.NoError(t, err)
-
-		normal, err := NormalizeKey(string(key))
-		assert.NoError(t, err)
-
-		expected := `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDqHQj6aCXGoh+CfyHhwmKBUFl2YsMe7zzjxzpOl/5vIZN4u+zqIpcaoil0UUqVIg7Sog/janXHyOQKeO5+0zOYrITh/cqXUMEfQnhIqC0JSE5WHryuxXZAMc8Ptcbx6VFDA2DPis2k9UZXAQDUpx3F/yaDNdzWufUeihLaIxWNUIbOqdWXnJ3eSGeZfxi1kUkP21Mjnx1vbJ6yQ0G/ozxLTwEx/TiHzGDbW4ScBqFIVWsJ0feXTupX/kwIdsgGB4XooSA8e22LwB/PbIEc3ag7K8lFy/jy6cJc6muwOhhiGPzyYM7cheUjwRzpixjIVIeVkXyM3wr5TaHLheKl9CJd`
-		assert.Equal(t, expected, strings.TrimSpace(normal))
-	})
-
-	t.Run("invalid", func(t *testing.T) {
-		_, err := NormalizeKey("abc")
-		assert.Error(t, err)
-	})
-}
 
 func TestAuthorizer_Authorize(t *testing.T) {
 	t.Run("err describing", func(t *testing.T) {

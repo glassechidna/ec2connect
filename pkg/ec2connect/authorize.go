@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect"
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect/ec2instanceconnectiface"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh"
 )
 
 type Authorizer struct {
@@ -56,13 +55,4 @@ func (c *Authorizer) Authorize(ctx context.Context, instanceId, user, sshKey str
 		Address:   ip,
 		RequestId: *r2.RequestId,
 	}, nil
-}
-
-func NormalizeKey(input string) (string, error) {
-	s, err := ssh.ParsePrivateKey([]byte(input))
-	if err != nil {
-		return "", errors.Wrap(err, "parsing private key")
-	}
-
-	return string(ssh.MarshalAuthorizedKey(s.PublicKey())), nil
 }
