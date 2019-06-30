@@ -46,8 +46,9 @@ ssh -L 2375:127.0.0.1:2375 ec2-user@i-000abc124def
 
 ## Known issues
 
-Right now this tool only works with SSH public keys that are stored on disk.
-What that means in effect is that you can't pass in an identity using `ssh -i <pemfile>`
+Right now this tool only works with SSH public keys that are stored on disk or
+in an SSH agent. What that means in effect is that you can't pass in an identity 
+using `ssh -i <pemfile>`.
 
 [rel-notes]: https://aws.amazon.com/about-aws/whats-new/2019/06/introducing-amazon-ec2-instance-connect/
 [docs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Connect-using-EC2-Instance-Connect.html
