@@ -66,7 +66,7 @@ AWS_REGION environment variable.
 	cmd.PersistentFlags().String("instance-id", "", "")
 	cmd.PersistentFlags().String("region", "", "")
 	cmd.PersistentFlags().String("user", "ec2-user", "")
-	cmd.PersistentFlags().String("ssh-key", "~/.ssh/id_rsa", "")
+	cmd.PersistentFlags().String("ssh-key", "~/.ssh/ec2connect/id_rsa.pub", "")
 
 	RootCmd.AddCommand(cmd)
 }

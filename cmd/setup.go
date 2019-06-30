@@ -2,12 +2,19 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"text/template"
 )
 
@@ -21,37 +28,18 @@ whenever you ssh into an EC2 server. This setup only needs to be run once on
 your machine.
 `,
 		Run: func(cmd *cobra.Command, args []string) {
-			configPath, _ := cmd.PersistentFlags().GetString("config-path")
-			keyPath, _ := cmd.PersistentFlags().GetString("key-path")
-			err := setup(configPath, keyPath)
+			err := setup("~/.ssh/config", "~/.ssh/ec2connect")
 			if err != nil {
 				panic(err)
 			}
 		},
 	}
 
-	cmd.PersistentFlags().String("config-path", "~/.ssh/config", "")
-	cmd.PersistentFlags().String("key-path", "~/.ssh/id_rsa", "")
 	RootCmd.AddCommand(cmd)
 }
 
-func setup(configPath, keyPath string) error {
-	tmpl, err := template.New("").Parse(`
-Match exec "ec2connect match --host %n --user %r"
-  IdentityFile {{ .KeyPath }}
-  ProxyCommand ec2connect connect --instance-id %h --user %r --ssh-key {{ .KeyPath }}
-`)
-	if err != nil {
-		return err
-	}
-
-	keyPath, err = homedir.Expand(keyPath)
-	if err != nil {
-		return err
-	}
-
-	b := &bytes.Buffer{}
-	err = tmpl.Execute(b, map[string]string{"KeyPath": keyPath})
+func setup(configPath, ec2connDir string) error {
+	ec2connDir, err := homedir.Expand(ec2connDir)
 	if err != nil {
 		return err
 	}
@@ -61,28 +49,102 @@ Match exec "ec2connect match --host %n --user %r"
 		return err
 	}
 
-	confDir := path.Dir(configPath)
-	ec2connDir := path.Join(confDir, "ec2connect")
-	err = os.MkdirAll(ec2connDir, 0644)
+	err = os.MkdirAll(ec2connDir, 0700)
+	if err != nil {
+		return errors.Wrapf(err, "creating directory at %s", ec2connDir)
+	}
+
+	privKey, pubKey, err := generateSshKeypair()
+	if err != nil {
+		return errors.Wrap(err, "generating new ssh key pair")
+	}
+
+	privKeyPath := path.Join(ec2connDir, "id_rsa")
+	err = ioutil.WriteFile(privKeyPath, privKey, 0600)
+	if err != nil {
+		return errors.Wrap(err, "writing new ssh priv key to disk")
+	}
+
+	err = ioutil.WriteFile(path.Join(ec2connDir, "id_rsa.pub"), pubKey, 0644)
+	if err != nil {
+		return errors.Wrap(err, "writing new ssh pub key to disk")
+	}
+
+	snippet, err := sshConfigSnippet(privKeyPath)
 	if err != nil {
 		return err
 	}
 
-	myConfPath := path.Join(confDir, "ec2connect_config")
-	err = ioutil.WriteFile(myConfPath, b.Bytes(), 0644)
+	myConfPath := path.Join(ec2connDir, "ssh_config")
+	err = ioutil.WriteFile(myConfPath, snippet, 0644)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.OpenFile(configPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	_, err = f.WriteString(fmt.Sprintf(`
+	err = idempotentAppend(configPath, fmt.Sprintf(`
 
 Include %s
 `, myConfPath))
+	return errors.Wrapf(err, "appending config to %s", configPath)
+}
+
+func sshConfigSnippet(privKeyPath string) ([]byte, error) {
+	tmpl, err := template.New("").Parse(`
+Match exec "ec2connect match --host %n --user %r"
+  IdentityFile {{ .KeyPath }}
+  ProxyCommand ec2connect connect --instance-id %h --user %r
+`)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing ssh config template")
+	}
+
+	b := &bytes.Buffer{}
+	err = tmpl.Execute(b, map[string]string{"KeyPath": privKeyPath})
+	if err != nil {
+		return nil, errors.Wrap(err, "rendering ssh config template")
+	}
+
+	return b.Bytes(), nil
+}
+
+func idempotentAppend(path, content string) error {
+	existing, err := ioutil.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return errors.Wrap(err, "reading existing file")
+	}
+
+	if strings.Contains(string(existing), content) {
+		return nil
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return errors.Wrap(err, "opening file for appending")
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(content)
 	return err
+}
+
+func generateSshKeypair() ([]byte, []byte, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "generating new ssh private key")
+	}
+
+	buf := bytes.Buffer{}
+	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
+	err = pem.Encode(&buf, privateKeyPEM)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "pem-encoding new ssh private key")
+	}
+
+	signer, err := ssh.NewSignerFromKey(privateKey)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "creating signer from ssh priv key")
+	}
+
+	public := ssh.MarshalAuthorizedKey(signer.PublicKey())
+	return buf.Bytes(), public, nil
 }
