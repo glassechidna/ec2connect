@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect"
@@ -87,6 +88,8 @@ func authorize(instanceId, region, user, sshKey string) (*ec2connect.ConnectionI
 	if err != nil {
 		return nil, err
 	}
+
+	sess.Handlers.Build.PushFront(request.MakeAddToUserAgentHandler("ec2connect", version))
 
 	auth := &ec2connect.Authorizer{Ec2Api: ec2.New(sess), ConnectApi: ec2instanceconnect.New(sess)}
 	return auth.Authorize(context.Background(), instanceId, user, sshKey)
