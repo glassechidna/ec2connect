@@ -13,7 +13,9 @@ import (
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -81,22 +83,36 @@ func setup(configPath, ec2connDir string) error {
 		return err
 	}
 
-	err = idempotentInsert(configPath, fmt.Sprintf("Include %s\n\n", myConfPath))
+	sshConfDir := path.Dir(configPath)
+	relEc2ConfPath, err := filepath.Rel(sshConfDir, myConfPath)
+	if err != nil {
+		return err
+	}
+
+	err = idempotentInsert(configPath, fmt.Sprintf("Include %s\n\n", relEc2ConfPath))
 	return errors.Wrapf(err, "appending config to %s", configPath)
 }
 
 func sshConfigSnippet(privKeyPath string) ([]byte, error) {
+	cmdPath, err := exec.LookPath("ec2connect")
+	if err != nil {
+		return nil, errors.Wrap(err, "You have to first install ec2connect somewhere on your PATH")
+	}
+
 	tmpl, err := template.New("").Parse(`
-Match exec "ec2connect match --host %n --user %r"
+Match exec "{{ .CommandPath }} match --host %n --user %r"
   IdentityFile {{ .KeyPath }}
-  ProxyCommand ec2connect connect --instance-id %h --user %r --port %p
+  ProxyCommand {{ .CommandPath }} connect --instance-id %h --user %r --port %p
 `)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing ssh config template")
 	}
 
 	b := &bytes.Buffer{}
-	err = tmpl.Execute(b, map[string]string{"KeyPath": privKeyPath})
+	err = tmpl.Execute(b, map[string]string{
+		"KeyPath":     privKeyPath,
+		"CommandPath": cmdPath,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "rendering ssh config template")
 	}
