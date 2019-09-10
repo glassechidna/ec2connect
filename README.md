@@ -44,6 +44,13 @@ AWS_PROFILE=mycompany ssh ec2-user@i-000abc124def
 ssh -L 2375:127.0.0.1:2375 ec2-user@i-000abc124def
 ```
 
+## Configuration
+
+Related configuration and generated SSH key pair is stored in `~/.ssh/ec2connect/`.
+
+Execution parameters of `ec2connect` can be modified in `~/.ssh/ec2connect/ssh_config`.
+Available parameters can be displayed with `ec2connect connect --help`.
+
 ## Known issues
 
 Right now this tool only works with SSH public keys that are stored on disk or

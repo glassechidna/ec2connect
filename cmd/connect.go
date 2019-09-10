@@ -30,7 +30,8 @@ func init() {
 			region, _ := cmd.PersistentFlags().GetString("region")
 			user, _ := cmd.PersistentFlags().GetString("user")
 			port, _ := cmd.PersistentFlags().GetInt("port")
-			err := connect(instanceId, region, user, port)
+			usePrivateIp, _ := cmd.PersistentFlags().GetBool("private-ip")
+			err := connect(instanceId, region, user, port, usePrivateIp)
 			if err != nil {
 				panic(err)
 			}
@@ -41,15 +42,16 @@ func init() {
 	cmd.PersistentFlags().String("region", "", "")
 	cmd.PersistentFlags().String("user", "ec2-user", "")
 	cmd.PersistentFlags().Int("port", 22, "")
+	cmd.PersistentFlags().Bool("private-ip", false, "always use private IP address (default false)")
 
 	RootCmd.AddCommand(cmd)
 }
 
-func connect(instanceId, region, user string, port int) error {
+func connect(instanceId, region, user string, port int, usePrivateIp bool) error {
 	conf := sshconfig.DefaultSsh.Get(instanceId, user, port)
 	pubKeyBytes := conf.EffectivePublicKey()
 
-	info, err := authorize(instanceId, region, user, string(pubKeyBytes))
+	info, err := authorize(instanceId, region, user, string(pubKeyBytes), usePrivateIp)
 	if err != nil {
 		if awsErr, ok := errors.Cause(err).(awserr.Error); ok {
 			if awsErr.Code() == credentials.ErrNoValidProvidersFoundInChain.Code() {
@@ -79,7 +81,7 @@ AWS_REGION environment variable.
 	return tunnel(fmt.Sprintf("%s:%d", info.Address, port))
 }
 
-func authorize(instanceId, region, user, sshKey string) (*ec2connect.ConnectionInfo, error) {
+func authorize(instanceId, region, user, sshKey string, usePrivateIp bool) (*ec2connect.ConnectionInfo, error) {
 	sess, err := session.NewSessionWithOptions(session.Options{
 		SharedConfigState:       session.SharedConfigEnable,
 		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
@@ -92,7 +94,7 @@ func authorize(instanceId, region, user, sshKey string) (*ec2connect.ConnectionI
 	sess.Handlers.Build.PushFront(request.MakeAddToUserAgentHandler("ec2connect", version))
 
 	auth := &ec2connect.Authorizer{Ec2Api: ec2.New(sess), ConnectApi: ec2instanceconnect.New(sess)}
-	return auth.Authorize(context.Background(), instanceId, user, sshKey)
+	return auth.Authorize(context.Background(), instanceId, user, sshKey, usePrivateIp)
 }
 
 func tunnel(addr string) error {
