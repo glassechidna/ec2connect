@@ -19,7 +19,7 @@ type ConnectionInfo struct {
 	RequestId string
 }
 
-func (c *Authorizer) Authorize(ctx context.Context, instanceId, user, sshKey string) (*ConnectionInfo, error) {
+func (c *Authorizer) Authorize(ctx context.Context, instanceId, user, sshKey string, usePrivateIp bool) (*ConnectionInfo, error) {
 	r, err := c.Ec2Api.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
 	if err != nil {
 		return nil, errors.Wrap(err, "describing instance")
@@ -47,7 +47,7 @@ func (c *Authorizer) Authorize(ctx context.Context, instanceId, user, sshKey str
 	}
 
 	ip := *instance.PrivateIpAddress
-	if instance.PublicIpAddress != nil { // TODO: they might *want* the private ip
+	if !usePrivateIp && instance.PublicIpAddress != nil {
 		ip = *instance.PublicIpAddress
 	}
 

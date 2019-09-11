@@ -23,7 +23,7 @@ func TestAuthorize(t *testing.T) {
 	assert.NoError(t, err)
 
 	pubKey := ssh.MarshalAuthorizedKey(signer.PublicKey())
-	info, err := authorize(instanceId, "ap-southeast-2", "ec2-user", string(pubKey))
+	info, err := authorize(instanceId, "ap-southeast-2", "ec2-user", string(pubKey), false)
 	assert.NoError(t, err)
 
 	assert.True(t, len(info.Address) > 0)
